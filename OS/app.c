@@ -13,6 +13,7 @@ typedef struct {
 } Process;
 
 void sortByArrival(Process p[], int n) {
+    // Bubble sort to arrange processes by arrival time
     Process temp;
     for(int i = 0; i < n-1; i++) {
         for(int j = 0; j < n-i-1; j++) {
@@ -25,15 +26,172 @@ void sortByArrival(Process p[], int n) {
     }
 }
 
+void executeFCFS(Process p[], int n, int gantt[], int gstart[], int gend[], int *gindex) {
+    int current_time = 0;
+    *gindex = 0;
+    
+    for(int i = 0; i < n; i++) {
+        // Handle idle time between processes
+        if(current_time < p[i].at) {
+            current_time = p[i].at;
+        }
+        
+        // Record process execution details
+        gstart[*gindex] = current_time;
+        p[i].ct = current_time + p[i].bt;
+        gend[*gindex] = p[i].ct;
+        gantt[*gindex] = p[i].pid;
+        (*gindex)++;
+        
+        // Update metrics
+        current_time = p[i].ct;
+        p[i].tat = p[i].ct - p[i].at;
+        p[i].wt = p[i].tat - p[i].bt;
+    }
+}
+
+void executeSJF(Process p[], int n, int gantt[], int gstart[], int gend[], int *gindex) {
+    int current_time = 0, completed = 0;
+    *gindex = 0;
+    
+    // Reset completion status
+    for(int i = 0; i < n; i++) {
+        p[i].completed = 0;
+    }
+    
+    while(completed < n) {
+        int idx = -1;
+        int min_bt = 9999;
+        
+        // Find shortest job among arrived processes
+        for(int i = 0; i < n; i++) {
+            if(p[i].at <= current_time && !p[i].completed) {
+                if(p[i].bt < min_bt) {
+                    min_bt = p[i].bt;
+                    idx = i;
+                }
+            }
+        }
+        
+        if(idx != -1) {
+            // Execute the process
+            gstart[*gindex] = current_time;
+            current_time += p[idx].bt;
+            gend[*gindex] = current_time;
+            gantt[*gindex] = p[idx].pid;
+            (*gindex)++;
+            
+            // Update process metrics
+            p[idx].ct = current_time;
+            p[idx].tat = p[idx].ct - p[idx].at;
+            p[idx].wt = p[idx].tat - p[idx].bt;
+            p[idx].completed = 1;
+            completed++;
+        } else {
+            // No available processes, advance time
+            current_time++;
+        }
+    }
+}
+
+void executeSRJF(Process p[], int n, int gantt[], int gstart[], int gend[], int *gindex) {
+    int current_time = 0, completed = 0;
+    int remaining_bt[MAX], last_pid = -1;
+    *gindex = 0;
+
+    for(int i = 0; i < n; i++) {
+        remaining_bt[i] = p[i].bt;
+        p[i].completed = 0;
+    }
+
+    while(completed < n) {
+        int idx = -1, min_bt = 9999;
+
+        for(int i = 0; i < n; i++) {
+            if(p[i].at <= current_time && !p[i].completed && remaining_bt[i] < min_bt && remaining_bt[i] > 0) {
+                min_bt = remaining_bt[i];
+                idx = i;
+            }
+        }
+
+        if(idx != -1) {
+            if(last_pid != p[idx].pid) {
+                gstart[*gindex] = current_time;
+                gantt[*gindex] = p[idx].pid;
+                (*gindex)++;
+            }
+
+            remaining_bt[idx]--;
+            current_time++;
+            last_pid = p[idx].pid;
+
+            if(remaining_bt[idx] == 0) {
+                p[idx].ct = current_time;
+                p[idx].tat = p[idx].ct - p[idx].at;
+                p[idx].wt = p[idx].tat - p[idx].bt;
+                p[idx].completed = 1;
+                completed++;
+
+                gend[*gindex - 1] = current_time;
+                last_pid = -1;
+            }
+        } else {
+            current_time++;
+            last_pid = -1;
+        }
+    }
+}
+
+
+void printResults(Process p[], int n, int gantt[], int gstart[], int gend[], int gindex) {
+    // Print Gantt Chart
+    printf("\nGantt Chart:\n ");
+    for(int i = 0; i < gindex; i++) {
+        printf("  P%d   ", gantt[i]);
+    }
+    printf("\n ");
+    
+    for(int i = 0; i < gindex; i++) {
+        printf("------");
+    }
+    printf("-\n");
+    
+    printf("%d", gstart[0]);
+    for(int i = 0; i < gindex; i++) {
+        printf("     %d", gend[i]);
+    }
+    printf("\n");
+    
+    // Print process table
+    printf("\nProcess\tAT\tBT\tCT\tTAT\tWT\n");
+    float total_tat = 0, total_wt = 0;
+    for(int i = 0; i < n; i++) {
+        total_tat += p[i].tat;
+        total_wt += p[i].wt;
+        printf("P%d\t%d\t%d\t%d\t%d\t%d\n", 
+              p[i].pid, p[i].at, p[i].bt, p[i].ct, p[i].tat, p[i].wt);
+    }
+    
+    printf("\nAverage Turnaround Time: %.2f\n", total_tat / n);
+    printf("Average Waiting Time: %.2f\n", total_wt / n);
+}
+
 int main() {
-    int n, completed = 0, current_time = 0;
-    float avg_tat = 0, avg_wt = 0;
+    int n, choice;
     Process p[MAX];
+    int gantt[MAX], gstart[MAX], gend[MAX], gindex;
+
+    // Ask user to choose scheduling algorithm first
+    printf("\nChoose scheduling algorithm:\n");
+    printf("1. SJF (Non-preemptive)\n");
+    printf("2. FCFS\n");
+    printf("3. SRJF (Preemptive)\n");
+    printf("Enter your choice (1, 2, or 3): ");
+    scanf("%d", &choice); // <-- Now before process inputs
 
     printf("Enter number of processes: ");
     scanf("%d", &n);
 
-    // Input processes
     for(int i = 0; i < n; i++) {
         p[i].pid = i + 1;
         printf("Enter Arrival Time and Burst Time for Process %d: ", p[i].pid);
@@ -43,69 +201,18 @@ int main() {
 
     sortByArrival(p, n);
 
-    printf("\nGantt Chart:\n");
-
-    int gantt[MAX], gstart[MAX], gend[MAX], gindex = 0;
-
-    while(completed < n) {
-        int idx = -1;
-        int min_bt = 9999;
-
-        for(int i = 0; i < n; i++) {
-            if(p[i].at <= current_time && p[i].completed == 0) {
-                if(p[i].bt < min_bt) {
-                    min_bt = p[i].bt;
-                    idx = i;
-                }
-            }
-        }
-
-        if(idx != -1) {
-            gstart[gindex] = current_time;
-            current_time += p[idx].bt;
-            gend[gindex] = current_time;
-            gantt[gindex] = p[idx].pid;
-            gindex++;
-
-            p[idx].ct = current_time;
-            p[idx].tat = p[idx].ct - p[idx].at;
-            p[idx].wt = p[idx].tat - p[idx].bt;
-            p[idx].completed = 1;
-            completed++;
-        } else {
-            current_time++;
-        }
+    if(choice == 1) {
+        executeSJF(p, n, gantt, gstart, gend, &gindex);
+    } else if(choice == 2) {
+        executeFCFS(p, n, gantt, gstart, gend, &gindex);
+    } else if(choice == 3) {
+        executeSRJF(p, n, gantt, gstart, gend, &gindex);
+    } else {
+        printf("Invalid choice! Exiting...\n");
+        return 1;
     }
 
-    // Print Gantt chart
-    printf("\n ");
-    for(int i = 0; i < gindex; i++) {
-        printf("  P%d   ", gantt[i]);
-    }
-    printf("\n");
-
-    printf(" ");
-    for(int i = 0; i < gindex; i++) {
-        printf("------");
-    }
-    printf("-\n");
-
-    printf("%d", gstart[0]);
-    for(int i = 0; i < gindex; i++) {
-        printf("     %d", gend[i]);
-    }
-    printf("\n");
-
-    // Print process table
-    printf("\nProcess\tAT\tBT\tCT\tTAT\tWT\n");
-    for(int i = 0; i < n; i++) {
-        avg_tat += p[i].tat;
-        avg_wt += p[i].wt;
-        printf("P%d\t%d\t%d\t%d\t%d\t%d\n", p[i].pid, p[i].at, p[i].bt, p[i].ct, p[i].tat, p[i].wt);
-    }
-
-    printf("\nAverage Turnaround Time = %.2f\n", avg_tat / n);
-    printf("Average Waiting Time = %.2f\n", avg_wt / n);
+    printResults(p, n, gantt, gstart, gend, gindex);
 
     return 0;
 }
