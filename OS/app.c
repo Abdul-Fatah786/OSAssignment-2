@@ -181,14 +181,6 @@ int main() {
     Process p[MAX];
     int gantt[MAX], gstart[MAX], gend[MAX], gindex;
 
-    // Ask user to choose scheduling algorithm first
-    printf("\nChoose scheduling algorithm:\n");
-    printf("1. SJF (Non-preemptive)\n");
-    printf("2. FCFS\n");
-    printf("3. SRJF (Preemptive)\n");
-    printf("Enter your choice (1, 2, or 3): ");
-    scanf("%d", &choice); // <-- Now before process inputs
-
     printf("Enter number of processes: ");
     scanf("%d", &n);
 
@@ -199,7 +191,14 @@ int main() {
         p[i].completed = 0;
     }
 
-    sortByArrival(p, n);
+    sortByArrival(p, n);    
+    
+    printf("\nChoose scheduling algorithm:\n");
+    printf("1. SJF (Non-preemptive)\n");
+    printf("2. FCFS\n");
+    printf("3. SRJF (Preemptive)\n");
+    printf("Enter your choice (1, 2, or 3): ");
+    scanf("%d", &choice);
 
     if(choice == 1) {
         executeSJF(p, n, gantt, gstart, gend, &gindex);
@@ -211,7 +210,7 @@ int main() {
         printf("Invalid choice! Exiting...\n");
         return 1;
     }
-
+        
     printResults(p, n, gantt, gstart, gend, gindex);
 
     return 0;
