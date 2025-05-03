@@ -29,7 +29,7 @@ void sortByArrival(Process p[], int n) {
 void executeFCFS(Process p[], int n, int gantt[], int gstart[], int gend[], int *gindex) {
     int current_time = 0;
     *gindex = 0;
-    
+
     for(int i = 0; i < n; i++) {
         // Handle idle time between processes
         if(current_time < p[i].at) {
@@ -53,12 +53,12 @@ void executeFCFS(Process p[], int n, int gantt[], int gstart[], int gend[], int 
 void executeSJF(Process p[], int n, int gantt[], int gstart[], int gend[], int *gindex) {
     int current_time = 0, completed = 0;
     *gindex = 0;
-    
+
     // Reset completion status
     for(int i = 0; i < n; i++) {
         p[i].completed = 0;
     }
-    
+
     while(completed < n) {
         int idx = -1;
         int min_bt = 9999;
@@ -142,76 +142,140 @@ void executeSRJF(Process p[], int n, int gantt[], int gstart[], int gend[], int 
     }
 }
 
+void executeRR(Process p[], int n, int quantum, int gantt[], int gstart[], int gend[], int *gindex) {
+    int remaining_bt[MAX];
+    for (int i = 0; i < n; i++) remaining_bt[i] = p[i].bt;
+
+    int current_time = 0, completed = 0, idx = 0;
+    int queue[MAX], front = 0, rear = 0, inQueue[MAX] = {0};
+
+    *gindex = 0;
+
+    queue[rear++] = 0;
+    inQueue[0] = 1;
+
+    while (completed < n) {
+        int pid = queue[front++];
+        Process *proc = &p[pid];
+
+        if (current_time < proc->at) current_time = proc->at;
+
+        gstart[*gindex] = current_time;
+
+        if (remaining_bt[pid] > quantum) {
+            current_time += quantum;
+            remaining_bt[pid] -= quantum;
+            queue[rear++] = pid; // push back
+        } else {
+            current_time += remaining_bt[pid];
+            remaining_bt[pid] = 0;
+            proc->ct = current_time;
+            proc->tat = proc->ct - proc->at;
+            proc->wt = proc->tat - proc->bt;
+            proc->completed = 1;
+            completed++;
+        }
+
+        gend[*gindex] = current_time;
+        gantt[*gindex] = proc->pid;
+        (*gindex)++;
+
+        for (int i = 0; i < n; i++) {
+            if (p[i].at <= current_time && remaining_bt[i] > 0 && !inQueue[i]) {
+                queue[rear++] = i;
+                inQueue[i] = 1;
+            }
+        }
+
+        if (front == rear) {
+            for (int i = 0; i < n; i++) {
+                if (remaining_bt[i] > 0) {
+                    queue[rear++] = i;
+                    inQueue[i] = 1;
+                    break;
+                }
+            }
+        }
+    }
+}
 
 void printResults(Process p[], int n, int gantt[], int gstart[], int gend[], int gindex) {
-    // Print Gantt Chart
-    printf("\nGantt Chart:\n ");
-    for(int i = 0; i < gindex; i++) {
-        printf("  P%d   ", gantt[i]);
-    }
-    printf("\n ");
-    
-    for(int i = 0; i < gindex; i++) {
-        printf("------");
-    }
+    // Fancy Gantt Chart with vertical bars
+    printf("\nGantt Chart:\n");
+
+    // Top border
+    for (int i = 0; i < gindex; i++) printf("-------");
     printf("-\n");
-    
+
+    // Process labels
+    for (int i = 0; i < gindex; i++) printf("|  P%d  ", gantt[i]);
+    printf("|\n");
+
+    // Bottom border
+    for (int i = 0; i < gindex; i++) printf("-------");
+    printf("-\n");
+
+    // Time scale
     printf("%d", gstart[0]);
-    for(int i = 0; i < gindex; i++) {
+    for (int i = 0; i < gindex; i++) {
         printf("     %d", gend[i]);
     }
     printf("\n");
-    
-    // Print process table
+
+    // Process table
     printf("\nProcess\tAT\tBT\tCT\tTAT\tWT\n");
     float total_tat = 0, total_wt = 0;
-    for(int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         total_tat += p[i].tat;
         total_wt += p[i].wt;
-        printf("P%d\t%d\t%d\t%d\t%d\t%d\n", 
-              p[i].pid, p[i].at, p[i].bt, p[i].ct, p[i].tat, p[i].wt);
+        printf("P%d\t%d\t%d\t%d\t%d\t%d\n",
+               p[i].pid, p[i].at, p[i].bt, p[i].ct, p[i].tat, p[i].wt);
     }
-    
+
     printf("\nAverage Turnaround Time: %.2f\n", total_tat / n);
     printf("Average Waiting Time: %.2f\n", total_wt / n);
 }
 
 int main() {
-    int n, choice;
+    int n, choice, quantum;
     Process p[MAX];
     int gantt[MAX], gstart[MAX], gend[MAX], gindex;
 
-    printf("Enter number of processes: ");
-    scanf("%d", &n);
-
-    for(int i = 0; i < n; i++) {
-        p[i].pid = i + 1;
-        printf("Enter Arrival Time and Burst Time for Process %d: ", p[i].pid);
-        scanf("%d %d", &p[i].at, &p[i].bt);
-        p[i].completed = 0;
-    }
-
-    sortByArrival(p, n);    
-    
     printf("\nChoose scheduling algorithm:\n");
     printf("1. SJF (Non-preemptive)\n");
     printf("2. FCFS\n");
     printf("3. SRJF (Preemptive)\n");
-    printf("Enter your choice (1, 2, or 3): ");
+    printf("4. Round Robin\n");
+    printf("Enter your choice (1 to 4): ");
     scanf("%d", &choice);
 
-    if(choice == 1) {
-        executeSJF(p, n, gantt, gstart, gend, &gindex);
-    } else if(choice == 2) {
-        executeFCFS(p, n, gantt, gstart, gend, &gindex);
-    } else if(choice == 3) {
-        executeSRJF(p, n, gantt, gstart, gend, &gindex);
-    } else {
-        printf("Invalid choice! Exiting...\n");
-        return 1;
+    if(choice == 4) {
+        printf("Enter Time Quantum: ");
+        scanf("%d", &quantum);
     }
-        
-    printResults(p, n, gantt, gstart, gend, gindex);
 
+    printf("\nEnter number of processes: ");
+    scanf("%d", &n);
+
+    for(int i = 0; i < n; i++) {
+        p[i].pid = i;
+        printf("Enter Arrival Time and Burst Time for Process %d: ", i + 1);
+        scanf("%d %d", &p[i].at, &p[i].bt);
+        p[i].completed = 0;
+    }
+
+    sortByArrival(p, n);
+
+    switch(choice) {
+        case 1: executeSJF(p, n, gantt, gstart, gend, &gindex); break;
+        case 2: executeFCFS(p, n, gantt, gstart, gend, &gindex); break;
+        case 3: executeSRJF(p, n, gantt, gstart, gend, &gindex); break;
+        case 4: executeRR(p, n, quantum, gantt, gstart, gend, &gindex); break;
+        default:
+            printf("Invalid choice!\n");
+            return 1;
+    }
+
+    printResults(p, n, gantt, gstart, gend, gindex);
     return 0;
 }
