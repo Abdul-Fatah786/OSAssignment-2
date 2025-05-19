@@ -5,16 +5,16 @@
 typedef struct {
     int pid;
     int at;
-    int bt;
-    int ct;
-    int tat;
+    int bt; // burst time => process executes on CPU 
+    int ct; //completion time => process completes its execution
+    int tat; // turn arouond time => completion time - arrival time
     int wt;
     int completed;
 } Process;
 
 void sortByArrival(Process p[], int n) {
     // Bubble sort to arrange processes by arrival time
-    Process temp;
+    Process temp; 
     for(int i = 0; i < n-1; i++) {
         for(int j = 0; j < n-i-1; j++) {
             if(p[j].at > p[j+1].at) {
@@ -257,6 +257,7 @@ int main() {
     printf("\nEnter number of processes: ");
     scanf("%d", &n);
 
+    // Input process details
     for(int i = 0; i < n; i++) {
         p[i].pid = i;
         printf("Enter Arrival Time and Burst Time for Process %d: ", i + 1);
